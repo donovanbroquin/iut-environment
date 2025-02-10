@@ -1,0 +1,97 @@
+# --------------------------------------------------------------------
+# Build stage: install Composer dependencies
+# --------------------------------------------------------------------
+FROM php:8.3.15-cli-bookworm AS composer
+
+WORKDIR /app
+
+COPY . .
+
+COPY --from=composer:2.8.4 /usr/bin/composer /usr/bin/composer
+
+# Install system dependencies
+RUN apt update -y && \
+    apt install -y \
+    zlib1g-dev \
+    libpng-dev \
+    libxml2-dev \
+    libxslt-dev \
+    libzip-dev \
+    libonig-dev \
+    libpq-dev \
+    zip
+
+# Install PHP extensions
+RUN pecl install redis && \
+    docker-php-ext-install -j$(nproc) mbstring exif pcntl bcmath gd zip && \
+    docker-php-ext-enable redis
+
+RUN composer install
+
+# --------------------------------------------------------------------
+# Build stage: build front
+# --------------------------------------------------------------------
+FROM node:20.16.0-bookworm AS node
+
+WORKDIR /app
+
+COPY . .
+
+RUN npm install
+RUN npm run build
+
+# --------------------------------------------------------------------
+# Final stage: build the definitive image
+# --------------------------------------------------------------------
+FROM dunglas/frankenphp:1.4.0-php8.3.15-bookworm
+
+# Change default path
+WORKDIR /app
+
+# Install system dependencies
+RUN apt update -y && \
+    apt install -y \
+    zlib1g-dev \
+    libpng-dev \
+    libxml2-dev \
+    libxslt-dev \
+    libzip-dev \
+    libonig-dev \
+    libpq-dev \
+    zip
+
+# Install PHP extensions
+RUN pecl install redis && \
+    docker-php-ext-install -j$(nproc) mbstring exif pcntl bcmath gd zip && \
+    docker-php-ext-enable redis
+
+# Create a non-root user and group
+RUN groupadd -r app && \
+    useradd -r -g app -d /app -s /bin/bash app && \
+    chown -R app:app /app
+
+# Create log directory
+RUN mkdir -p /var/log/app && \
+    chown -R app:app /var/log/app
+
+# Enable Tinker
+RUN mkdir -p /config/psysh && \
+    chown -R app:app /config/psysh
+
+# Copy Caddy configuration file
+COPY ./Caddyfile /etc/caddy/Caddyfile
+
+# Install Composer
+COPY --from=composer:2.8.4 /usr/bin/composer /usr/bin/composer
+
+# Copy the app code
+COPY . .
+
+COPY --chown=www-data --from=composer /app/vendor /app/vendor
+COPY --chown=www-data --from=node /app/public /app/public
+
+# Install Composer
+RUN chown app:app -R /app
+
+# Switch to the non-root user
+USER app
