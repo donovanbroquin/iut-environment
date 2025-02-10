@@ -6,6 +6,8 @@ This guide assumes you are using an Ubuntu VM. If you want to use something else
 
 > Of course, you need to know basic stuff about Linux
 
+![Users access the Traefik container which redirect to the correct service according to the domain within the VM](illustrations/deployment.jpg)
+
 ## CI / CD
 
 A [GitHub Workflow](https://docs.github.com/en/actions/writing-workflows) that builds your application Docker image and stores it in GHCR is present in the `production` directory.
