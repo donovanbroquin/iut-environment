@@ -55,6 +55,15 @@ services:
       - traefik.http.routers.weather.service=weather
       - traefik.http.services.weather.loadbalancer.server.port=80
 
+  weather-scheduler:
+    container_name: weather-scheduler
+    restart: unless-stopped
+    image: ${WEATHER_SCHEDULER_IMAGE}
+    volumes:
+      - ./database.sqlite:/app/database/database.sqlite
+    env_file:
+      - ./.env.weather
+
   # Portfolio website
   portfolio:
     container_name: portfolio

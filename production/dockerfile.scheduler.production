@@ -29,21 +29,9 @@ RUN pecl install redis && \
 RUN composer install
 
 # --------------------------------------------------------------------
-# Build stage: build front
-# --------------------------------------------------------------------
-FROM node:20.16.0-bookworm AS node
-
-WORKDIR /app
-
-COPY . .
-
-RUN npm install
-RUN npm run build
-
-# --------------------------------------------------------------------
 # Final stage: build the definitive image
 # --------------------------------------------------------------------
-FROM dunglas/frankenphp:1.4.2-php8.4.3-bookworm
+FROM php:8.4.2-cli-bookworm
 
 # Change default path
 WORKDIR /app
@@ -58,40 +46,39 @@ RUN apt update -y && \
     libzip-dev \
     libonig-dev \
     libpq-dev \
-    zip
+    zip \
+    cron
 
 # Install PHP extensions
 RUN pecl install redis && \
     docker-php-ext-install -j$(nproc) mbstring exif pcntl bcmath gd zip && \
     docker-php-ext-enable redis
 
-# Create a non-root user and group
+# Create app user and group
 RUN groupadd -r app && \
     useradd -r -g app -d /app -s /bin/bash app && \
     chown -R app:app /app
-
-# Create log directory
-RUN mkdir -p /var/log/app && \
-    chown -R app:app /var/log/app
 
 # Enable Tinker
 RUN mkdir -p /config/psysh && \
     chown -R app:app /config/psysh
 
-# Copy Caddy configuration file
-COPY ./Caddyfile /etc/caddy/Caddyfile
-
-# Install Composer
-COPY --from=composer:2.8.4 /usr/bin/composer /usr/bin/composer
-
 # Copy the app code
 COPY . .
 
+# Copy the vendor directory
 COPY --chown=www-data --from=composer /app/vendor /app/vendor
-COPY --chown=www-data --from=node /app/public /app/public
 
-# Install Composer
-RUN chown app:app -R /app
+# Add scheduler CRON 
+RUN echo '* * * * * /usr/local/bin/php /app/artisan schedule:run --no-interaction --quiet >> /var/log/scheduler/scheduler.log 2>&1' >> /etc/cron.d/app-cron && \
+    mkdir -p /var/log/scheduler /var/log/app && \
+    touch /var/log/scheduler/scheduler.log && \
+    chown -R app:app /var/log/scheduler /var/log/app && \
+    crontab -u app /etc/cron.d/app-cron && \
+    chmod u+s /usr/sbin/cron
 
-# Switch to the non-root user
+# Switch to the non-root user for application code execution
 USER app
+
+# Run cron
+CMD ["sh", "-c", "cron && tail -f /var/log/scheduler/scheduler.log"]

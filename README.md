@@ -108,7 +108,8 @@ Also, you need to fill it with your data.
 |Name|Description|
 |----|-----------|
 |LETSENCRYPT_MAIL| Let's encrypt require an email to generate a valid certificate|
-|WEATHER_WEB_IMAGE| Your Docker app image tag (ex: ghcr.io/<GITHUB_USERNAME>/iut-weather:latest)|
+|WEATHER_WEB_IMAGE| Your Docker app web image tag (ex: ghcr.io/<GITHUB_USERNAME>/iut-weather:latest)|
+|WEATHER_SCHEDULER_IMAGE| Your Docker app scheduler image tag (ex: ghcr.io/<GITHUB_USERNAME>/iut-weather-scheduler:latest)|
 |WEATHER_DOMAIN| Your application domain without HTTP(s)://|
 |PORTFOLIO_IMAGE| Your Docker portfolio image tag (ex: ghcr.io/<GITHUB_USERNAME>/portfolio:latest)|
 |PORTFOLIO_DOMAIN| Your portfolio domain without HTTP(s)://|
@@ -124,10 +125,21 @@ This compose will create three containers by default:
 
 ### Weather
 
+You need to **upgrade** your application to `PHP 8.4` **before** hosting it using files from this repository.
+
+- delete all you local containers
+- delete all built images for the weather app
+- change version in the dockerfile to use 8.4.3
+- re-launch environment
+- `composer update`
+    - if errors appears, check you dependencies
+
 #### Build
 Copy the following files: 
-- build_weather_production.yml: `<PROJECT>/.github/workflows/`
+- build_weather_web_production_image.yml: `<PROJECT>/.github/workflows/`
+- build_weather_scheduler_production_image.yml: `<PROJECT>/.github/workflows/`
 - dockerfile.server.production: `<PROJECT>/`
+- dockerfile.scheduler.production: `<PROJECT>/`
 - Caddyfile: `<PROJECT>/`
 
 The CI will be triggered every time you push to the `main` branch. If you need it, you can [manually trigger](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow) the build.
@@ -152,7 +164,7 @@ Once you have created your portfolio Docker image, you can use the tag you want 
 
 #### Build
 Copy the following files: 
-- dockerfile.static.production: `<PROJECT>/`
+- dockerfile.static.production_image: `<PROJECT>/`
 
 The CI will be triggered every time you push to the `main` branch. If you need it, you can [manually trigger](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow) the build.
 
